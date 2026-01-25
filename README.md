@@ -157,17 +157,7 @@ Spark ML Pipeline:
 
 ---
 
-## 12. Thành viên nhóm
-
-* Thành viên 1: Data Ingestion
-* Thành viên 2: Kafka & Streaming
-* Thành viên 3: Data Lake & Spark SQL
-* Thành viên 4: Spark ML
-* Thành viên 5: Báo cáo & Presentation
-
----
-
-## 13. Tài liệu tham khảo
+## 12. Tài liệu tham khảo
 
 * Lecture Notes IT4931 – Đại học Bách Khoa Hà Nội
 * Apache Kafka Documentation

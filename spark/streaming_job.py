@@ -15,7 +15,10 @@ df = spark.readStream \
     .format("kafka") \
     .option("kafka.bootstrap.servers", "kafka:9092") \
     .option("subscribe", "news-topic") \
+    .option("startingOffsets", "earliest") \
     .load()
+
+spark.conf.set("spark.sql.streaming.stopGracefullyOnShutdown", "true")
 
 json_df = df.select(
     from_json(col("value").cast("string"), schema).alias("data")
@@ -23,9 +26,10 @@ json_df = df.select(
 
 query = json_df.writeStream \
     .format("parquet") \
-    .option("path", "hdfs://namenode:9000/news/raw") \
-    .option("checkpointLocation", "hdfs://namenode:9000/news/checkpoint") \
+    .option("path", "hdfs://namenode:8020/news/raw") \
+    .option("checkpointLocation", "hdfs://namenode:8020/news/checkpoint") \
     .outputMode("append") \
+    .trigger(processingTime="30 seconds") \
     .start()
 
 query.awaitTermination()
