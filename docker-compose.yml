@@ -19,7 +19,12 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-
+    healthcheck:
+      test: ["CMD", "bash", "-c", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      
   namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
     container_name: namenode
@@ -30,6 +35,10 @@ services:
       - "8020:8020"
     volumes:
       - ./hdfs/namenode:/hadoop/dfs/name
+    healthcheck:
+      test: ["CMD", "hdfs", "dfsadmin", "-safemode", "get"]
+      interval: 10s
+      retries: 10
 
   datanode:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
@@ -46,8 +55,10 @@ services:
     image: apache/spark:3.5.0
     container_name: spark
     depends_on:
-      - kafka
-      - namenode
+      kafka:
+        condition: service_healthy
+      namenode:
+        condition: service_healthy
     environment:
     - HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
     - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
@@ -55,6 +66,10 @@ services:
     volumes:
       - ./spark:/opt/spark-apps
       - ./ivy-cache:/home/spark/.ivy2
+
+    ports:
+      - "4040:4040"
+
     # command: >
     #   bash -c "
     #   mkdir -p /home/spark/.ivy2/cache &&

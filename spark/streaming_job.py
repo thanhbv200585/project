@@ -6,6 +6,8 @@ spark = SparkSession.builder \
     .appName("NewsStreaming") \
     .getOrCreate()
 
+spark.conf.set("spark.sql.streaming.stopGracefullyOnShutdown", "true")
+
 schema = StructType() \
     .add("title", StringType()) \
     .add("summary", StringType()) \
@@ -16,18 +18,19 @@ df = spark.readStream \
     .option("kafka.bootstrap.servers", "kafka:9092") \
     .option("subscribe", "news-topic") \
     .option("startingOffsets", "earliest") \
+    .option("failOnDataLoss", "false") \
+    .option("kafka.group.id", "news-streaming-v1") \
     .load()
-
-spark.conf.set("spark.sql.streaming.stopGracefullyOnShutdown", "true")
 
 json_df = df.select(
     from_json(col("value").cast("string"), schema).alias("data")
-).select("data.*")
+).where(col("data").isNotNull()) \
+ .select("data.*")
 
 query = json_df.writeStream \
     .format("parquet") \
     .option("path", "hdfs://namenode:8020/news/raw") \
-    .option("checkpointLocation", "hdfs://namenode:8020/news/checkpoint") \
+    .option("checkpointLocation", "hdfs://namenode:8020/news/checkpoint/v1") \
     .outputMode("append") \
     .trigger(processingTime="30 seconds") \
     .start()
