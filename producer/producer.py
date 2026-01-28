@@ -1,7 +1,7 @@
+from kafka import KafkaProducer
+import feedparser
 import json
 import time
-import feedparser
-from kafka import KafkaProducer
 
 producer = KafkaProducer(
     bootstrap_servers="kafka:9092",
@@ -12,6 +12,7 @@ rss_url = "https://vnexpress.net/rss/tin-moi-nhat.rss"
 
 while True:
     feed = feedparser.parse(rss_url)
+    print("Feed:", feed)
     for entry in feed.entries[:5]:
         msg = {
             "title": entry.title,
