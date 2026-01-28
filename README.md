@@ -1,217 +1,214 @@
-# News Big Data Analytics Pipeline
+# News Streaming Big Data Pipeline
 
-## 1. Giới thiệu
+## 1. Project Overview
 
-Dự án **News Big Data Analytics Pipeline** xây dựng một hệ thống thu thập, lưu trữ và phân tích dữ liệu lớn từ các nguồn tin tức online theo thời gian thực. Project được thực hiện nhằm áp dụng các kiến thức trong môn **IT4931 – Lưu trữ và xử lý dữ liệu lớn (HUST)**.
+This project is a **production-like Big Data Streaming Pipeline** designed to simulate the workload, inspired by large-scale academic pipelines such as the *Spotify Big Data Pipeline*.
 
-Hệ thống áp dụng các công nghệ phổ biến trong hệ sinh thái Big Data như **Kafka, HDFS, Spark Structured Streaming, Spark SQL và Spark ML**, được thiết kế theo **kiến trúc Kappa**. Pipeline cho phép ingest dữ liệu liên tục, xử lý streaming, lưu trữ vào Data Lake và phục vụ phân tích/khai phá tri thức.
+The system ingests real-time news data from **RSS feeds**, streams it through **Apache Kafka**, processes it using **Apache Spark Structured Streaming**, stores it in **HDFS**, and exposes analytical views through a **dashboard layer**.
 
----
+The project emphasizes:
 
-## 2. Mục tiêu
-
-* Thu thập dữ liệu tin tức liên tục từ RSS Feed.
-* Xây dựng pipeline xử lý dữ liệu lớn theo **kiến trúc Kappa**.
-* Lưu trữ dữ liệu thô (raw data) trong **Data Lake (HDFS)**.
-* Xử lý dữ liệu thời gian thực bằng **Spark Structured Streaming**.
-* Phân tích dữ liệu bằng **Spark SQL và Spark ML**.
-* Triển khai và demo toàn bộ hệ thống bằng **Docker Compose**.
+* End-to-end streaming architecture
+* Fault tolerance & checkpointing
+* Scalable data storage
+* Observability & monitoring
+* Clear separation of responsibilities (ingestion, processing, storage, analytics)
 
 ---
 
-## 3. Đặc trưng Big Data (5V)
+## 2. High-Level Architecture
 
-* **Volume**: Hàng chục nghìn bài báo được thu thập theo thời gian.
-* **Velocity**: Dữ liệu sinh liên tục từ các nguồn tin tức online.
-* **Variety**: Dữ liệu văn bản, metadata (nguồn, thời gian, chủ đề).
-* **Veracity**: Dữ liệu không đồng nhất, có thể nhiễu, cần làm sạch.
-* **Value**: Phân tích xu hướng, chủ đề nóng và cảm xúc xã hội.
+### Data Flow
 
----
+1. RSS feeds are polled periodically
+2. Producer publishes parsed news events to Kafka topics
+3. Spark Structured Streaming consumes Kafka topics
+4. Data is validated, enriched, and aggregated
+5. Processed data is written to HDFS (Parquet)
+6. Analytics layer reads from HDFS for dashboards
 
-## 4. Kiến trúc hệ thống
+### Architecture Diagram (Mermaid)
 
-Hệ thống được thiết kế theo **kiến trúc Kappa**, sử dụng **một pipeline xử lý luồng duy nhất** cho cả dữ liệu thời gian thực và dữ liệu lịch sử.
+```mermaid
+graph LR
+    RSS[RSS Sources]
+    P[Python Producer]
+    K[Kafka Broker]
+    S[Spark Streaming]
+    H[HDFS]
+    D[Dashboard / BI]
 
-### Luồng dữ liệu
-
-```
-News Sources (RSS)
-        ↓
-      Kafka (Event Log)
-        ↓
-Spark Structured Streaming
-        ↓
-   HDFS Data Lake (Parquet)
-        ↓
- Spark SQL / Spark ML
-        ↓
-   Serving Layer / Dashboard
-```
-
-### Lý do chọn kiến trúc Kappa
-
-* Giảm độ phức tạp so với Lambda Architecture.
-* Phù hợp với dữ liệu tin tức real-time.
-* Dữ liệu lịch sử có thể xử lý lại bằng cách **replay Kafka stream**.
-
----
-
-## 5. Công nghệ sử dụng
-
-* **Apache Kafka**: Hệ thống truyền thông điệp phân tán (event streaming platform).
-* **Apache Spark**: Structured Streaming, Spark SQL, Spark ML.
-* **HDFS**: Lưu trữ dữ liệu lớn theo mô hình Data Lake.
-* **Python**: Thu thập dữ liệu RSS và xây dựng Spark job.
-* **Docker & Docker Compose**: Triển khai, orchestration và demo hệ thống.
-
----
-
-## 6. Dataset
-
-### Nguồn dữ liệu
-
-* VNExpress RSS: [https://vnexpress.net/rss/tin-moi-nhat.rss](https://vnexpress.net/rss/tin-moi-nhat.rss)
-* BBC News RSS: [https://www.bbc.com/news/rss.xml](https://www.bbc.com/news/rss.xml)
-
-### Schema dữ liệu
-
-```json
-{
-  "title": "string",
-  "summary": "string",
-  "published": "timestamp",
-  "source": "string"
-}
+    RSS --> P
+    P --> K
+    K --> S
+    S --> H
+    H --> D
 ```
 
 ---
 
-## 7. Cấu trúc thư mục
+## 3. Technology Stack
+
+| Layer             | Technology                                      |
+| ----------------- | ----------------------------------------------- |
+| Ingestion         | Python, feedparser                              |
+| Messaging         | Apache Kafka                                    |
+| Stream Processing | Apache Spark (Structured Streaming)             |
+| Storage           | HDFS, Parquet                                   |
+| Orchestration     | Docker, Docker Compose                          |
+| Monitoring        | Spark UI, Kafka CLI, HDFS UI                    |
+| Visualization     | (Planned) Superset / Grafana / Custom Dashboard |
+
+---
+
+## 4. Project Structure
 
 ```
-news-bigdata-pipeline/
-├── docker-compose.yml
-├── producer/
-│   └── producer.py          # Kafka producer (RSS ingestion)
-├── spark/
-│   └── streaming_job.py     # Spark Structured Streaming job
-├── hdfs/
-│   ├── namenode/
-│   └── datanode/
-└── README.md
+.
+├── docker-compose.yml        # Full cluster definition
+├── producer.py               # RSS → Kafka producer
+├── streaming_job.py          # Spark Structured Streaming job
+├── README.md                 # Project documentation
+└── data/
+    ├── raw/                  # Raw ingested data
+    ├── processed/            # Cleaned & enriched data
+    └── analytics/            # Aggregated datasets
 ```
 
 ---
 
-## 8. Hướng dẫn chạy demo
+## 5. Data Ingestion Layer (Kafka Producer)
 
-### Yêu cầu hệ thống
+### Responsibilities
 
-* Docker >= 20.x
-* Docker Compose
-* RAM khuyến nghị >= 8GB
+* Poll RSS feeds on a configurable interval
+* Normalize news data (title, summary, timestamp, source)
+* Serialize data as JSON
+* Publish events to Kafka topic(s)
 
-### Các bước chạy
+### Design Notes
+
+* At-least-once delivery semantics
+* Idempotent message keys (hash of title + timestamp)
+* Backoff & retry on Kafka unavailability
+
+---
+
+## 6. Streaming Processing Layer (Spark)
+
+### Core Features
+
+* Spark Structured Streaming with Kafka source
+* Schema enforcement using `StructType`
+* Exactly-once processing semantics (via checkpoints)
+* Output stored as partitioned Parquet files
+
+### Fault Tolerance
+
+* Checkpointing in HDFS
+* Automatic recovery after Spark restart
+* Kafka offset tracking
+
+---
+
+## 7. Storage Layer (HDFS)
+
+### Data Zones
+
+* **Raw Zone**: unmodified streaming output
+* **Processed Zone**: cleaned & deduplicated data
+* **Analytics Zone**: aggregated datasets
+
+### Storage Format
+
+* Parquet (columnar, compressed)
+* Partitioned by date
+
+---
+
+## 8. Observability & Monitoring
+
+| Component    | Access                                         |
+| ------------ | ---------------------------------------------- |
+| Spark UI     | [http://localhost:4040](http://localhost:4040) |
+| Kafka Topics | kafka-topics.sh                                |
+| HDFS UI      | [http://localhost:9870](http://localhost:9870) |
+
+Metrics tracked:
+
+* Kafka lag
+* Spark batch duration
+* Input rows per second
+* HDFS storage growth
+
+---
+
+## 9. Dashboard & Analytics (Planned)
+
+Planned analytics use cases:
+
+* News volume over time
+* Top news sources
+* Keyword frequency analysis
+* Near real-time trend detection
+
+Possible tools:
+
+* Apache Superset
+* Grafana + Trino
+* Custom React dashboard
+
+---
+
+## 10. Production-Like Considerations
+
+* Service dependency ordering
+* Health checks
+* Safe-mode handling in HDFS
+* Schema evolution readiness
+* Horizontal scalability
+
+---
+
+## 11. Future Enhancements
+
+* Multiple Kafka topics by category
+* Spark watermarking & late data handling
+* Elasticsearch sink for fast search
+* CI/CD pipeline
+* Data quality checks
+
+---
+
+## 12. How to Run
 
 ```bash
 docker-compose up -d
 ```
 
-### Kiểm tra hệ thống
+Verify:
 
-* **HDFS NameNode UI**: [http://localhost:9870](http://localhost:9870)
-* **Spark UI**: [http://localhost:4040](http://localhost:4040) (khi Spark job đang chạy)
-* **Kafka Topic**: `news-topic`
-* **Dữ liệu HDFS**: `/news/raw`
-
----
-
-## 9. Machine Learning (Mở rộng)
-
-Các bài toán ML có thể triển khai trên dữ liệu đã lưu trữ:
-
-* Phân loại chủ đề bài báo (Politics, Tech, Sports...).
-* Phân tích sentiment nội dung tin tức.
-
-### Spark ML Pipeline (ví dụ)
-
-* Tokenizer
-* StopWordsRemover
-* HashingTF / TF-IDF
-* Logistic Regression / Naive Bayes
+* Kafka topic exists
+* Producer publishes messages
+* Spark UI shows active query
+* Parquet files appear in HDFS
 
 ---
 
-## 10. Kết quả mong đợi
+## 13. Learning Outcomes
 
-* Pipeline streaming chạy ổn định.
-* Dữ liệu được lưu trữ an toàn trong Data Lake (HDFS, Parquet).
-* Có thể truy vấn dữ liệu bằng Spark SQL.
-* Demo end-to-end hoàn chỉnh trong ~15 phút presentation.
+This project demonstrates:
 
----
-
-## 11. Hạn chế và hướng phát triển
-
-### Hạn chế
-
-* Chưa xử lý dữ liệu mạng xã hội (Twitter, Facebook...).
-* Machine Learning ở mức cơ bản.
-* Chưa có giao diện dashboard trực quan.
-
-### Hướng phát triển
-
-* Bổ sung Dashboard (Apache Superset / Grafana).
-* Mở rộng thêm nhiều nguồn dữ liệu.
-* Triển khai multi-node HDFS & Spark cluster.
+* Real-time big data pipelines
+* Distributed system debugging
+* Production-style Spark streaming
+* End-to-end data engineering workflow
 
 ---
 
-## 12. Tài liệu tham khảo
+## 14. References
 
-* Lecture Notes IT4931 – Đại học Bách Khoa Hà Nội
 * Apache Kafka Documentation
-* Apache Spark Documentation
-* Hadoop HDFS Documentation
-
-flowchart LR
-    subgraph Data Sources
-        RSS1[VNExpress RSS]
-        RSS2[BBC News RSS]
-    end
-
-    subgraph Ingestion Layer
-        P[Python Producer<br/>feedparser]
-    end
-
-    subgraph Messaging Layer
-        K[(Apache Kafka<br/>news-topic)]
-    end
-
-    subgraph Processing Layer
-        SS[Spark Structured Streaming<br/>JSON → DataFrame]
-    end
-
-    subgraph Storage Layer
-        HDFS[(HDFS Data Lake<br/>Parquet Files)]
-    end
-
-    subgraph Analytics Layer
-        SQL[Spark SQL]
-        ML[Spark ML<br/>Topic / Sentiment]
-    end
-
-    subgraph Serving Layer
-        UI[Analytics / Dashboard]
-    end
-
-    RSS1 --> P
-    RSS2 --> P
-    P --> K
-    K --> SS
-    SS --> HDFS
-    HDFS --> SQL
-    HDFS --> ML
-    SQL --> UI
-    ML --> UI
+* Apache Spark Structured Streaming Guide
+* HDFS Architecture
+* Spotify Big Data Pipeline (Reference Project)
