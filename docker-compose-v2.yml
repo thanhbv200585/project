@@ -1,0 +1,123 @@
+services:
+  # ======================
+  # Zookeeper
+  # ======================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+
+  # ======================
+  # Kafka
+  # ======================
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+  # ======================
+  # HDFS NameNode
+  # ======================
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    environment:
+      - CLUSTER_NAME=news-cluster
+    ports:
+      - "9870:9870"
+      - "8020:8020"
+    volumes:
+      - ./hdfs/namenode:/hadoop/dfs/name
+    healthcheck:
+      test: ["CMD", "hdfs", "dfsadmin", "-safemode", "get"]
+      interval: 10s
+      retries: 10
+
+  # ======================
+  # HDFS DataNode
+  # ======================
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    environment:
+      - SERVICE_PRECONDITION=namenode:9870
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+    volumes:
+      - ./hdfs/datanode:/hadoop/dfs/data
+    depends_on:
+      - namenode
+
+  # ======================
+  # Spark
+  # ======================
+  spark:
+    image: apache/spark:3.5.0
+    container_name: spark
+    user: root
+    depends_on:
+      - kafka
+      - namenode
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+    volumes:
+      - ./spark:/opt/spark-apps
+      - ./ivy-cache:/home/spark/.ivy2
+    ports:
+      - "4040:4040"
+      - "4041:4041"
+    command:
+      - /bin/bash
+      - -c
+      - |
+        echo "Waiting for HDFS..."
+        until (echo > /dev/tcp/namenode/8020) >/dev/null 2>&1; do
+          sleep 5
+        done
+
+        echo "Waiting for Kafka..."
+        sleep 15
+
+        echo "Starting Spark Streaming Ingest Job..."
+        /opt/spark/bin/spark-submit \
+          --master local[*] \
+          --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 \
+          --py-files /opt/spark-apps/schema.py \
+          /opt/spark-apps/streaming/ingest_news_stream.py
+
+
+  # ======================
+  # Producer
+  # ======================
+  producer:
+    image: python:3.10
+    container_name: producer
+    depends_on:
+      - kafka
+    working_dir: /app
+    volumes:
+      - ./producer:/app
+    command: >
+      /bin/bash -c "
+      sleep 15;
+      pip install --no-cache-dir kafka-python feedparser;
+      python producer.py
+      "
+
+volumes:
+  hdfs_namenode:
+  hdfs_datanode:
